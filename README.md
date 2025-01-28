@@ -43,6 +43,10 @@ It supports development and production configurations, automated setup, and seam
 
 3. Access the application in your browser at `http://localhost` or your configured domain.
 
+### Reverse Proxy Configuration
+
+This repository is designed to work with a reverse proxy for SSL and domain management. Use the [docker-reverse-proxy](https://github.com/sesejohn/docker-reverse-proxy) repository, which runs an NGINX proxy and an ACME companion to automatically generate SSL certificates. Ensure that the `VIRTUAL_HOST` and `LETSENCRYPT_HOST` environment variables are set correctly in the .env file for seamless integration.
+
 ### Environment Configuration
 The environment is controlled by the `APP_ENV` variable in your `.env` file:
 - **`prod`**: For production configuration.

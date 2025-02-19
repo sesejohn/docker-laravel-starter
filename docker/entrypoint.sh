@@ -12,4 +12,12 @@ elif [ "$APP_ENV" = 'dev' ]; then
     rsync -rt /home/docker/dev/php/ /usr/local/etc/php/
 fi
 
+cd /home/www
+composer install --no-dev --optimize-autoloader
+php artisan config:cache \
+    && php artisan route:cache \
+    && php artisan view:cache \
+    && php artisan event:cache \
+    && php artisan optimize
+
 exec "$@"

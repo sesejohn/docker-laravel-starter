@@ -4,7 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: laravel-php:11
     restart: always
     environment:
       - LETSENCRYPT_HOST=${HOST_NAME}

@@ -3,28 +3,40 @@ ifneq (,$(wildcard ./.env))
     export
 endif
 
-.PHONY: start reload restart stop shutdown reset health logs ps system-prune
+.PHONY: run-prune start reload restart stop shutdown reset health logs ps system-prune
 
-start: docker-start
-	@echo "Container starting... Done."
+start:
+	@echo "Container starting..."
+	@docker-compose up -d
+	@echo "Container started: $(HOST_NAME)"
 
-reload: docker-down docker-start docker-recache
+reload:
+	@docker-compose down
+	@docker-compose up -d
+	@docker exec $(HOST_NAME) bash -c "php artisan cache:clear && php artisan config:clear && \
+	php artisan route:clear && php artisan view:clear && \
+	php artisan config:cache && php artisan route:cache && \
+	php artisan view:cache && php artisan event:cache && php artisan optimize"
 	@echo "Container reloaded and Laravel cache refreshed."
 
 restart:
-	@echo "Restarting container $(HOST_NAME)..."
+	@echo "Container restarting..."
 	@docker restart $(HOST_NAME)
-	@echo "Container restarted."
+	@echo "Container restarted: $(HOST_NAME)"
 
 stop:
-	@echo "Stopping container $(HOST_NAME)..."
+	@echo "Container stopping..."
 	@docker stop $(HOST_NAME)
-	@echo "Container stopped."
+	@echo "Container stopped: $(HOST_NAME)"
 
-shutdown: docker-down
+shutdown:
+	@docker-compose down
 	@echo "All containers shut down."
 
-reset: docker-down docker-image-remove docker-start
+reset:
+	@docker-compose down
+	@docker rmi laravel-php:11 || true
+	@docker-compose up -d
 	@echo "Application reset: containers stopped, image removed, and restarted."
 
 health:
@@ -39,23 +51,9 @@ ps:
 	@echo "Listing running containers..."
 	@docker ps
 
-system-prune:
+check-prune:
 	@echo "Checking Docker system disk usage..."
 	@docker system df
 
-docker-start:
-	@docker-compose up -d
-
-docker-down:
-	@docker-compose down
-
-docker-image-remove:
-	@docker rmi laravel-php:11 || true
-
-docker-recache:
-	@echo "Refreshing Laravel cache..."
-	@docker exec $(HOST_NAME) bash -c "php artisan cache:clear && php artisan config:clear && \
-	php artisan route:clear && php artisan view:clear && \
-	php artisan config:cache && php artisan route:cache && \
-	php artisan view:cache && php artisan event:cache && php artisan optimize"
-	@echo "Laravel cache refreshed."
+run-prune:
+	docker system prune -a --volumes -f

@@ -1,59 +1,67 @@
-ifneq (,$(wildcard ./.env))
-    include .env
-    export
-endif
+# Base Image
+FROM php:8.2.12-apache
 
-.PHONY: run-prune start reload restart stop shutdown reset health logs ps system-prune
+# Development Packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    zip \
+    unzip \
+    libicu-dev \
+    libbz2-dev \
+    libpng-dev \
+    libjpeg-dev \
+    libfreetype6-dev \
+    g++ \
+    libzip-dev \
+    libonig-dev \
+    supervisor \
+    iputils-ping \
+    curl \
+    rsync \
+    sudo
 
-start:
-	@echo "Container starting..."
-	@docker-compose up -d
-	@echo "Container started: $(HOST_NAME)"
+# MySQL Extension
+RUN docker-php-ext-install mysqli pdo_mysql
 
-reload:
-	@docker-compose down
-	@docker-compose up -d
-	@docker exec $(HOST_NAME) bash -c "php artisan cache:clear && php artisan config:clear && \
-	php artisan route:clear && php artisan view:clear && \
-	php artisan config:cache && php artisan route:cache && \
-	php artisan view:cache && php artisan event:cache && php artisan optimize"
-	@echo "Container reloaded and Laravel cache refreshed."
+# Additional PHP extensions
+RUN docker-php-ext-install \
+    bz2 \
+    intl \
+    iconv \
+    bcmath \
+    opcache \
+    mbstring \
+    zip \
+    #calendar \
+    pdo_mysql
 
-restart:
-	@echo "Container restarting..."
-	@docker restart $(HOST_NAME)
-	@echo "Container restarted: $(HOST_NAME)"
+# Clear Cache
+RUN apt-get clean && rm -rf /var/lib/apt/lists/* /var/cache/apt/archives/*
 
-stop:
-	@echo "Container stopping..."
-	@docker stop $(HOST_NAME)
-	@echo "Container stopped: $(HOST_NAME)"
+# Enable Apache Modules
+RUN a2enmod rewrite headers
 
-shutdown:
-	@docker-compose down
-	@echo "All containers shut down."
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-reset:
-	@docker-compose down
-	@docker rmi laravel-php:11 || true
-	@docker-compose up -d
-	@echo "Application reset: containers stopped, image removed, and restarted."
+# Set Up Docker-related Files
+WORKDIR /home/docker
+COPY docker .
+RUN chmod +x entrypoint.sh
 
-health:
-	@echo "Checking health status of container $(HOST_NAME)..."
-	@docker inspect --format='{{json .State.Health.Status}}' $(HOST_NAME)
+# Set Up Laravel Application
+WORKDIR /home/www
+COPY src .
 
-logs:
-	@echo "Showing logs for container $(HOST_NAME)..."
-	@docker logs -f $(HOST_NAME)
+# Set Correct Permissions for Laravel
+RUN chown -R www-data:www-data . \
+    && chmod -R 755 storage bootstrap/cache
 
-ps:
-	@echo "Listing running containers..."
-	@docker ps
+# Expose Apache Port
+EXPOSE 80
 
-check-prune:
-	@echo "Checking Docker system disk usage..."
-	@docker system df
+# Set entrypoint
+ENTRYPOINT ["/home/docker/entrypoint.sh"]
 
-run-prune:
-	docker system prune -a --volumes -f
+# Start Apache
+CMD ["apache2-foreground"]
